@@ -1,7 +1,7 @@
 import * as SecureStore from 'expo-secure-store';
 import { Platform } from 'react-native';
 
-export const BASE_URL = 'http://192.168.1.166:3000/api';
+export const BASE_URL = 'http://192.168.1.55:3000/api';
 const TOKEN_KEY = 'poolflow_token';
 
 // Token helpers — SecureStore on device, localStorage on web

@@ -21,24 +21,24 @@ export default function TopAppBar({ showBack = false, showAvatar = true, avatarU
     >
       <View className="flex-row items-center gap-3">
         {showBack ? (
-          <Pressable
-            onPress={() => router.back()}
-            className="w-10 h-10 items-center justify-center rounded-full active:bg-surface-container-low"
-          >
-            <MaterialIcons name="arrow-back" size={24} color="#005d90" />
-          </Pressable>
+          <>
+            <Pressable
+              onPress={() => router.back()}
+              className="w-10 h-10 items-center justify-center rounded-full active:bg-surface-container-low"
+            >
+              <MaterialIcons name="arrow-back" size={24} color="#0B4A8E" />
+            </Pressable>
+            <Text className="font-headline font-extrabold text-[#0B4A8E] text-2xl tracking-tight">
+              {title || 'PoolFlow'}
+            </Text>
+          </>
         ) : (
-          <View className="w-10 h-10 rounded-full bg-primary-fixed items-center justify-center overflow-hidden">
-            {avatarUri ? (
-              <Image source={{ uri: avatarUri }} className="w-full h-full" />
-            ) : (
-              <MaterialIcons name="pool" size={20} color="#005d90" />
-            )}
-          </View>
+          <Image
+            source={require('@/assets/images/logo-home.png')}
+            style={{ width: 160, height: 50 }}
+            resizeMode="contain"
+          />
         )}
-        <Text className="font-headline font-extrabold text-[#0077B6] text-2xl tracking-tight">
-          {title || 'PoolFlow'}
-        </Text>
       </View>
 
       {showAvatar && !showBack ? (

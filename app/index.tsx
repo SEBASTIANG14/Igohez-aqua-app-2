@@ -33,37 +33,33 @@ export default function LoginScreen() {
   };
 
   return (
-    <KeyboardAvoidingView 
+    <KeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       className="flex-1 bg-background"
     >
       <StatusBar style="dark" />
       <ScrollView contentContainerClassName="flex-grow flex items-center justify-center p-6 relative">
-        
+
         {/* Background Elements */}
         <View className="absolute top-[-10%] right-[-5%] w-[500px] h-[500px] rounded-full bg-primary-fixed opacity-20 pointer-events-none" />
         <View className="absolute bottom-[-10%] left-[-5%] w-[400px] h-[400px] rounded-full bg-secondary-fixed opacity-15 pointer-events-none" />
 
         <View className="w-full max-w-md z-10">
-          
+
           {/* Branding */}
           <View className="items-center mb-12">
-            <LinearGradient
-              colors={['#005d90', '#0077b6']}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              className="items-center justify-center w-20 h-20 rounded-full mb-6 shadow-md"
-            >
-              <MaterialIcons name="pool" size={36} color="white" />
-            </LinearGradient>
-            <Text className="font-headline font-extrabold text-4xl tracking-tight text-primary">PoolFlow</Text>
-            <Text className="font-label uppercase tracking-widest text-xs mt-2 text-on-surface-variant font-medium">Panel de Administración</Text>
+            <Image
+              source={require('@/assets/images/logo-login.png')}
+              style={{ width: 280, height: 280 }}
+              resizeMode="contain"
+            />
+            <Text className="font-label uppercase tracking-widest text-xs mt-4 text-on-surface-variant font-medium">Panel de Administración</Text>
           </View>
 
           {/* Login Card */}
           <View className="bg-surface-container-lowest rounded-[2rem] p-8 shadow-sm">
             <View className="space-y-6 flex-col gap-6">
-              
+
               {/* Error Message */}
               {error ? (
                 <View className="bg-error-container px-4 py-3 rounded-2xl flex-row items-center gap-2">
@@ -79,7 +75,7 @@ export default function LoginScreen() {
                 </Text>
                 <View className="relative justify-center flex-row items-center bg-surface-container-high rounded-full px-4 py-1">
                   <MaterialIcons name="alternate-email" size={20} color="#707881" className="mr-2" />
-                  <TextInput 
+                  <TextInput
                     className="flex-1 py-3 text-on-surface font-body outline-none placeholder:text-outline/50"
                     placeholder="admin@poolflow.com"
                     placeholderTextColor="#70788180"
@@ -101,7 +97,7 @@ export default function LoginScreen() {
                 </View>
                 <View className="relative justify-center flex-row items-center bg-surface-container-high rounded-full px-4 py-1">
                   <MaterialIcons name="lock" size={20} color="#707881" className="mr-2" />
-                  <TextInput 
+                  <TextInput
                     className="flex-1 py-3 text-on-surface font-body outline-none placeholder:text-outline/50"
                     placeholder="••••••••"
                     placeholderTextColor="#70788180"

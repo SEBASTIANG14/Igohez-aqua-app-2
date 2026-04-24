@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useMemo } from 'react';
-import { View, Text, ScrollView, Pressable, ActivityIndicator, RefreshControl } from 'react-native';
+import { View, Text, ScrollView, Pressable, ActivityIndicator, RefreshControl, useWindowDimensions } from 'react-native';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { StatusBar } from 'expo-status-bar';
 import { router, useFocusEffect } from 'expo-router';
@@ -59,6 +59,7 @@ const TYPE_COLORS: Record<string, { bg: string; color: string }> = {
 };
 
 export default function AgendaScreen() {
+  const { width } = useWindowDimensions();
   const today = new Date().toISOString().split('T')[0];
   const [selectedDate, setSelectedDate] = useState(today);
   const [visits, setVisits] = useState<Visit[]>([]);
@@ -141,6 +142,7 @@ export default function AgendaScreen() {
               markedDates={markedDates}
               theme={CALENDAR_THEME}
               allowShadow={false}
+              calendarWidth={width - 72}
             />
           </CalendarProvider>
         </View>
