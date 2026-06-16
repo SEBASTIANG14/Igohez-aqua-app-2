@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, Pressable, ActivityIndicator, Alert, TextInput, Platform, KeyboardAvoidingView } from 'react-native';
+import { View, Text, ScrollView, Pressable, ActivityIndicator, Alert, TextInput, Platform, KeyboardAvoidingView, Linking } from 'react-native';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { StatusBar } from 'expo-status-bar';
 import { router, useLocalSearchParams } from 'expo-router';
 
 import TopAppBar from '@/components/ui/TopAppBar';
-import { getVisitById, type Visit } from '@/services/visits';
+import { getVisitById, updateVisitStatus, type Visit } from '@/services/visits';
 import { apiPut } from '@/services/api';
 
 // Shared Product Catalog
@@ -38,7 +38,7 @@ export default function VisitDetailScreen() {
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [quantity, setQuantity] = useState('');
   
-  // Note: Backend handles unit conversions. We will just send 'g' or 'kg', 'ml' or 'l'
+  // Unit toggle state
   const [selectedUnit, setSelectedUnit] = useState<'kg' | 'g' | 'l' | 'ml'>('kg');
 
   // Added items tracking
@@ -50,9 +50,9 @@ export default function VisitDetailScreen() {
     const prod = PRODUCT_CATALOG[selectedProduct];
     if (prod) {
       if (prod.baseUnit === 'kg') {
-        setSelectedUnit('kg'); // Or user can toggle to 'g'
+        setSelectedUnit('kg');
       } else {
-        setSelectedUnit('l'); // Or user can toggle to 'ml'
+        setSelectedUnit('l');
       }
     }
   }, [selectedProduct]);
@@ -95,20 +95,91 @@ export default function VisitDetailScreen() {
     setItems(items.filter((_, i) => i !== index));
   };
 
+  const handleSendReceipt = (visitData: Visit) => {
+    const dateStr = new Date(visitData.date).toLocaleDateString('es-MX', {
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric',
+    });
+
+    const basePrice = visitData.pricePerVisit || 0;
+    const serviceSub = (visitData.visitsCount || 1) * basePrice;
+
+    let chemicalsList = '';
+    if (visitData.items && Array.isArray(visitData.items) && visitData.items.length > 0) {
+      visitData.items.forEach((item: any) => {
+        const prod = PRODUCT_CATALOG[item.product];
+        const prodLabel = prod ? prod.label : item.product;
+        const cost = item.lineTotal !== undefined ? item.lineTotal : 0;
+        chemicalsList += `• ${prodLabel}: ${item.quantity} ${item.unit} ($${cost.toFixed(2)})\n`;
+      });
+    } else {
+      chemicalsList = '• Ninguno\n';
+    }
+
+    const total = visitData.totalAmount || (serviceSub + (visitData.chemicalsSubtotal || 0));
+
+    const message = `*PoolFlow Maintenance Systems*
+----------------------------------------
+*Resumen de Visita de Mantenimiento*
+📅 *Fecha:* ${dateStr}
+----------------------------------------
+*DESGLOSE DEL SERVICIO:*
+• Servicio Base (${visitData.visitsCount} vis): $${serviceSub.toFixed(2)}
+
+*QUÍMICOS APLICADOS:*
+${chemicalsList}----------------------------------------
+*Monto Total:* $${total.toFixed(2)}
+----------------------------------------
+¡Gracias por su confianza!`;
+
+    const url = `whatsapp://send?text=${encodeURIComponent(message)}`;
+    
+    Linking.canOpenURL(url).then((supported) => {
+      if (supported) {
+        Linking.openURL(url);
+      } else {
+        // Fallback to wa.me web link
+        Linking.openURL(`https://wa.me/?text=${encodeURIComponent(message)}`);
+      }
+    }).catch(() => {
+      Alert.alert('Error', 'No se pudo abrir WhatsApp.');
+    });
+  };
+
   const handleSave = async () => {
     if (!visit) return;
     setSaving(true);
     try {
-      // API call to update visit
+      // 1. Guardar químicos actuales en la base de datos
       await apiPut(`/pools/${visit.poolId}/visits/${visit.id}`, {
         items: items
       });
-      Alert.alert('Guardado', 'Visita actualizada exitosamente.', [{
-        text: 'OK',
-        onPress: () => router.back()
-      }]);
+
+      // 2. Actualizar el estado de la visita a COMPLETED
+      const updated = await updateVisitStatus(visit.poolId, visit.id, 'COMPLETED');
+      setVisit(updated);
+
+      // 3. Abrir WhatsApp y enviar el recibo de forma automática
+      handleSendReceipt(updated);
+
+      Alert.alert('Finalizada', 'Visita guardada y finalizada exitosamente.');
     } catch (err: any) {
       Alert.alert('Error', err.message || 'No se pudo guardar.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleReactivate = async () => {
+    if (!visit) return;
+    setSaving(true);
+    try {
+      const updated = await updateVisitStatus(visit.poolId, visit.id, 'ACTIVE');
+      setVisit(updated);
+      Alert.alert('Reactivada', 'La visita ha sido reactivada. Ahora puedes agregar o modificar químicos.');
+    } catch (err: any) {
+      Alert.alert('Error', err.message || 'No se pudo reactivar la visita.');
     } finally {
       setSaving(false);
     }
@@ -125,6 +196,7 @@ export default function VisitDetailScreen() {
   const poolType = visit.pool?.poolType || 'PARTICULAR';
   const typeStyle = TYPE_COLORS[poolType] || TYPE_COLORS['PARTICULAR'];
   const basePrice = visit.pricePerVisit || 0;
+  const isCompleted = visit.status === 'COMPLETED';
 
   // Optimistic calculation for display
   const itemsSubtotal = items.reduce((sum, item) => {
@@ -173,132 +245,227 @@ export default function VisitDetailScreen() {
               </View>
             )}
 
-            <View className="flex-row items-center gap-2">
-              <View className="w-2 h-2 rounded-full bg-[#005d90]" />
-              <Text className="text-[#005d90] font-bold text-sm">En Progreso</Text>
-            </View>
-          </View>
-
-          {/* Registro de Químicos */}
-          <View className="flex-row justify-between items-end mb-4">
-            <Text className="font-headline font-bold text-lg text-on-surface">Registro de Químicos</Text>
-            <Text className="font-label uppercase tracking-widest text-[10px] text-on-surface-variant">CATÁLOGO</Text>
-          </View>
-
-          <View className="bg-surface-container-lowest rounded-2xl p-5 shadow-sm mb-8">
-            
-            <Text className="font-label uppercase tracking-widest text-[10px] text-on-surface-variant font-bold mb-2 ml-1">
-              PRODUCTO
-            </Text>
-            <Pressable
-              onPress={() => setDropdownOpen(!dropdownOpen)}
-              className="flex-row items-center justify-between bg-surface-container-low rounded-xl px-4 py-3 mb-4"
-            >
-              <Text className="text-on-surface font-body text-sm">
-                {currentProd.label}
-              </Text>
-              <MaterialIcons name={dropdownOpen ? 'expand-less' : 'expand-more'} size={20} color="#707881" />
-            </Pressable>
-            {dropdownOpen && (
-              <View className="bg-surface-container-low rounded-xl mb-4 border border-outline-variant overflow-hidden">
-                {PRODUCT_KEYS.map((key) => {
-                  const p = PRODUCT_CATALOG[key];
-                  const isSelected = key === selectedProduct;
-                  return (
-                    <Pressable
-                      key={key}
-                      onPress={() => {
-                        setSelectedProduct(key);
-                        setDropdownOpen(false);
-                      }}
-                      className={`px-4 py-3 border-b border-surface-container-high ${isSelected ? 'bg-primary-fixed' : ''}`}
-                    >
-                      <Text className={`font-body text-sm ${isSelected ? 'text-primary font-bold' : 'text-on-surface'}`}>
-                        {p.label}
-                      </Text>
-                    </Pressable>
-                  );
-                })}
-              </View>
-            )}
-
-            <Text className="font-label uppercase tracking-widest text-[10px] text-on-surface-variant font-bold mb-2 ml-1">
-              CANTIDAD
-            </Text>
-            <View className="flex-row gap-3 items-center mb-6">
-              <View className="flex-1 flex-row items-center bg-surface-container-low rounded-xl px-4 py-1 h-[48px]">
-                <TextInput
-                  className="flex-1 text-on-surface font-body text-sm h-full"
-                  placeholder="0.0"
-                  placeholderTextColor="#707881"
-                  value={quantity}
-                  onChangeText={setQuantity}
-                  keyboardType="decimal-pad"
-                />
-                
-                {/* Unit Toggle */}
-                <View className="flex-row bg-surface-container rounded-lg p-0.5 ml-2">
-                  <Pressable
-                    onPress={() => setSelectedUnit(isWeight ? 'g' : 'ml')}
-                    className={`px-2 py-1 rounded-md ${selectedUnit === 'g' || selectedUnit === 'ml' ? 'bg-white shadow-sm' : ''}`}
-                  >
-                    <Text className={`font-label text-[10px] font-bold ${selectedUnit === 'g' || selectedUnit === 'ml' ? 'text-primary' : 'text-on-surface-variant'}`}>
-                      {isWeight ? 'G' : 'ML'}
-                    </Text>
-                  </Pressable>
-                  <Pressable
-                    onPress={() => setSelectedUnit(isWeight ? 'kg' : 'l')}
-                    className={`px-2 py-1 rounded-md ${selectedUnit === 'kg' || selectedUnit === 'l' ? 'bg-white shadow-sm' : ''}`}
-                  >
-                    <Text className={`font-label text-[10px] font-bold ${selectedUnit === 'kg' || selectedUnit === 'l' ? 'text-primary' : 'text-on-surface-variant'}`}>
-                      {isWeight ? 'KG' : 'L'}
-                    </Text>
-                  </Pressable>
-                </View>
-              </View>
-
-              <Pressable
-                onPress={handleAddItem}
-                className="w-12 h-12 bg-[#005d90] rounded-xl items-center justify-center active:scale-95 shadow-sm"
-              >
-                <MaterialIcons name="add" size={24} color="white" />
-              </Pressable>
-            </View>
-
-            <Text className="font-label uppercase tracking-widest text-[10px] text-on-surface-variant font-bold mb-2 ml-1">
-              APLICADOS HOY
-            </Text>
-            {items.length === 0 ? (
-              <View className="bg-surface-container-low rounded-xl px-4 py-4 mb-2 items-center">
-                <Text className="text-on-surface-variant text-xs">Aún no hay químicos agregados.</Text>
+            {isCompleted ? (
+              <View className="flex-row items-center gap-2">
+                <View className="w-2.5 h-2.5 rounded-full bg-[#00677d]" />
+                <Text className="text-[#00677d] font-bold text-sm">Finalizada</Text>
               </View>
             ) : (
-              items.map((item, idx) => {
-                if (!item) return null;
-                const p = PRODUCT_CATALOG[item.product];
-                let baseQty = item.quantity;
-                if (item.unit === 'g' || item.unit === 'ml') baseQty = item.quantity / 1000;
-                const cost = baseQty * (p?.pricePerBase || 0);
+              <View className="flex-row items-center gap-2">
+                <View className="w-2.5 h-2.5 rounded-full bg-[#005d90]" />
+                <Text className="text-[#005d90] font-bold text-sm">En Progreso</Text>
+              </View>
+            )}
+          </View>
 
-                return (
-                  <View key={idx} className="bg-surface-container-low rounded-xl px-4 py-3 mb-2 flex-row items-center justify-between">
-                    <View>
-                      <Text className="font-headline font-bold text-sm text-on-surface">{p?.label || item.product}</Text>
-                      <Text className="text-on-surface-variant text-[10px] uppercase font-label">
-                        {item.quantity} {item.unit} APLICADO
-                      </Text>
-                    </View>
-                    <View className="flex-row items-center gap-3">
-                      <Text className="font-headline font-bold text-[#005d90]">${cost.toFixed(2)}</Text>
-                      <Pressable onPress={() => handleRemoveItem(idx)} className="p-1 active:opacity-50">
-                        <MaterialIcons name="delete" size={18} color="#d32f2f" />
+          {/* Registro de Químicos (Form) — Only show if visit is ACTIVE */}
+          {!isCompleted && (
+            <>
+              <View className="flex-row justify-between items-end mb-4">
+                <Text className="font-headline font-bold text-lg text-on-surface">Registro de Químicos</Text>
+                <Text className="font-label uppercase tracking-widest text-[10px] text-on-surface-variant">CATÁLOGO</Text>
+              </View>
+
+              <View className="bg-surface-container-lowest rounded-2xl p-5 shadow-sm mb-8">
+                
+                <Text className="font-label uppercase tracking-widest text-[10px] text-on-surface-variant font-bold mb-2 ml-1">
+                  PRODUCTO
+                </Text>
+                <Pressable
+                  onPress={() => setDropdownOpen(!dropdownOpen)}
+                  className="flex-row items-center justify-between bg-surface-container-low rounded-xl px-4 py-3 mb-4"
+                >
+                  <Text className="text-on-surface font-body text-sm">
+                    {currentProd.label}
+                  </Text>
+                  <MaterialIcons name={dropdownOpen ? 'expand-less' : 'expand-more'} size={20} color="#707881" />
+                </Pressable>
+                {dropdownOpen && (
+                  <View className="bg-surface-container-low rounded-xl mb-4 border border-outline-variant overflow-hidden">
+                    {PRODUCT_KEYS.map((key) => {
+                      const p = PRODUCT_CATALOG[key];
+                      const isSelected = key === selectedProduct;
+                      return (
+                        <Pressable
+                          key={key}
+                          onPress={() => {
+                            setSelectedProduct(key);
+                            setDropdownOpen(false);
+                          }}
+                          className={`px-4 py-3 border-b border-surface-container-high ${isSelected ? 'bg-primary-fixed' : ''}`}
+                        >
+                          <Text className={`font-body text-sm ${isSelected ? 'text-primary font-bold' : 'text-on-surface'}`}>
+                            {p.label}
+                          </Text>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                )}
+
+                <Text className="font-label uppercase tracking-widest text-[10px] text-on-surface-variant font-bold mb-2 ml-1">
+                  CANTIDAD
+                </Text>
+                <View className="flex-row gap-3 items-center mb-6">
+                  <View className="flex-1 flex-row items-center bg-surface-container-low rounded-xl px-4 py-1 h-[48px]">
+                    <TextInput
+                      className="flex-1 text-on-surface font-body text-sm h-full"
+                      placeholder="0.0"
+                      placeholderTextColor="#707881"
+                      value={quantity}
+                      onChangeText={setQuantity}
+                      keyboardType="decimal-pad"
+                    />
+                    
+                    {/* Unit Toggle */}
+                    <View className="flex-row bg-surface-container rounded-lg p-0.5 ml-2">
+                      <Pressable
+                        onPress={() => setSelectedUnit(isWeight ? 'g' : 'ml')}
+                        className="px-2 py-1 rounded-md"
+                        style={
+                          selectedUnit === 'g' || selectedUnit === 'ml'
+                            ? {
+                                backgroundColor: 'white',
+                                ...Platform.select({
+                                  ios: {
+                                    shadowColor: '#000',
+                                    shadowOffset: { width: 0, height: 1 },
+                                    shadowOpacity: 0.15,
+                                    shadowRadius: 1,
+                                  },
+                                  android: {
+                                    elevation: 1,
+                                  },
+                                }),
+                              }
+                            : null
+                        }
+                      >
+                        <Text
+                          className="font-label text-[10px] font-bold"
+                          style={{
+                            color: selectedUnit === 'g' || selectedUnit === 'ml' ? '#005d90' : '#404850',
+                          }}
+                        >
+                          {isWeight ? 'G' : 'ML'}
+                        </Text>
+                      </Pressable>
+                      <Pressable
+                        onPress={() => setSelectedUnit(isWeight ? 'kg' : 'l')}
+                        className="px-2 py-1 rounded-md"
+                        style={
+                          selectedUnit === 'kg' || selectedUnit === 'l'
+                            ? {
+                                backgroundColor: 'white',
+                                ...Platform.select({
+                                  ios: {
+                                    shadowColor: '#000',
+                                    shadowOffset: { width: 0, height: 1 },
+                                    shadowOpacity: 0.15,
+                                    shadowRadius: 1,
+                                  },
+                                  android: {
+                                    elevation: 1,
+                                  },
+                                }),
+                              }
+                            : null
+                        }
+                      >
+                        <Text
+                          className="font-label text-[10px] font-bold"
+                          style={{
+                            color: selectedUnit === 'kg' || selectedUnit === 'l' ? '#005d90' : '#404850',
+                          }}
+                        >
+                          {isWeight ? 'KG' : 'L'}
+                        </Text>
                       </Pressable>
                     </View>
                   </View>
-                );
-              })
-            )}
-          </View>
+
+                  <Pressable
+                    onPress={handleAddItem}
+                    className="w-12 h-12 bg-[#005d90] rounded-xl items-center justify-center active:scale-95 shadow-sm"
+                  >
+                    <MaterialIcons name="add" size={24} color="white" />
+                  </Pressable>
+                </View>
+
+                <Text className="font-label uppercase tracking-widest text-[10px] text-on-surface-variant font-bold mb-2 ml-1">
+                  APLICADOS HOY
+                </Text>
+                {items.length === 0 ? (
+                  <View className="bg-surface-container-low rounded-xl px-4 py-4 mb-2 items-center">
+                    <Text className="text-on-surface-variant text-xs">Aún no hay químicos agregados.</Text>
+                  </View>
+                ) : (
+                  items.map((item, idx) => {
+                    if (!item) return null;
+                    const p = PRODUCT_CATALOG[item.product];
+                    let baseQty = item.quantity;
+                    if (item.unit === 'g' || item.unit === 'ml') baseQty = item.quantity / 1000;
+                    const cost = baseQty * (p?.pricePerBase || 0);
+
+                    return (
+                      <View key={idx} className="bg-surface-container-low rounded-xl px-4 py-3 mb-2 flex-row items-center justify-between">
+                        <View>
+                          <Text className="font-headline font-bold text-sm text-on-surface">{p?.label || item.product}</Text>
+                          <Text className="text-on-surface-variant text-[10px] uppercase font-label">
+                            {item.quantity} {item.unit} APLICADO
+                          </Text>
+                        </View>
+                        <View className="flex-row items-center gap-3">
+                          <Text className="font-headline font-bold text-[#005d90]">${cost.toFixed(2)}</Text>
+                          <Pressable onPress={() => handleRemoveItem(idx)} className="p-1 active:opacity-50">
+                            <MaterialIcons name="delete" size={18} color="#d32f2f" />
+                          </Pressable>
+                        </View>
+                      </View>
+                    );
+                  })
+                )}
+              </View>
+            </>
+          )}
+
+          {/* Registro de Químicos (Read-Only) — Show if visit is COMPLETED */}
+          {isCompleted && (
+            <>
+              <View className="flex-row justify-between items-end mb-4">
+                <Text className="font-headline font-bold text-lg text-on-surface">Químicos Aplicados</Text>
+                <Text className="font-label uppercase tracking-widest text-[10px] text-[#00677d] font-bold">REGISTRADO</Text>
+              </View>
+
+              <View className="bg-surface-container-lowest rounded-2xl p-5 shadow-sm mb-8">
+                {items.length === 0 ? (
+                  <View className="bg-surface-container-low rounded-xl px-4 py-4 items-center">
+                    <Text className="text-on-surface-variant text-xs">No se aplicaron químicos en esta visita.</Text>
+                  </View>
+                ) : (
+                  items.map((item, idx) => {
+                    if (!item) return null;
+                    const p = PRODUCT_CATALOG[item.product];
+                    let baseQty = item.quantity;
+                    if (item.unit === 'g' || item.unit === 'ml') baseQty = item.quantity / 1000;
+                    const cost = baseQty * (p?.pricePerBase || 0);
+
+                    return (
+                      <View key={idx} className="bg-surface-container-low rounded-xl px-4 py-3.5 mb-2 flex-row items-center justify-between">
+                        <View>
+                          <Text className="font-headline font-bold text-sm text-on-surface">{p?.label || item.product}</Text>
+                          <Text className="text-on-surface-variant text-[10px] uppercase font-label">
+                            {item.quantity} {item.unit} APLICADO
+                          </Text>
+                        </View>
+                        <Text className="font-headline font-bold text-on-surface">${cost.toFixed(2)}</Text>
+                      </View>
+                    );
+                  })
+                )}
+              </View>
+            </>
+          )}
 
           {/* Resumen de Costos */}
           <View className="bg-surface-container-low rounded-3xl p-6 mb-8">
@@ -326,12 +493,32 @@ export default function VisitDetailScreen() {
             </View>
           </View>
 
-          {/* Finalize Button */}
+          {/* Action Buttons */}
           {saving ? (
             <View className="py-4 items-center bg-[#005d90] rounded-full">
                <ActivityIndicator color="white" />
             </View>
+          ) : isCompleted ? (
+            /* COMPLETED MODE BUTTONS */
+            <View className="flex-col gap-4">
+              <Pressable
+                onPress={() => handleSendReceipt(visit)}
+                className="w-full bg-[#00677d] py-4 rounded-full flex-row items-center justify-center gap-2 active:scale-[0.98] shadow-md"
+              >
+                <MaterialIcons name="share" size={20} color="white" />
+                <Text className="text-white font-headline font-bold text-base">Rehacer y Mandar Recibo</Text>
+              </Pressable>
+
+              <Pressable
+                onPress={handleReactivate}
+                className="w-full bg-[#f2f4f6] py-4 rounded-full flex-row items-center justify-center gap-2 active:scale-[0.98] border border-outline-variant/30"
+              >
+                <MaterialIcons name="lock-open" size={20} color="#404850" />
+                <Text className="text-[#404850] font-headline font-bold text-base">Reactivar Visita</Text>
+              </Pressable>
+            </View>
           ) : (
+            /* ACTIVE MODE BUTTONS */
             <Pressable
               onPress={handleSave}
               className="w-full bg-[#005d90] py-4 rounded-full flex-row items-center justify-center gap-2 active:scale-[0.98] shadow-md border border-[#005d90]"

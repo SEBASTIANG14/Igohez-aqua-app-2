@@ -21,7 +21,7 @@ export default function DashboardIndexScreen() {
       setPools(poolsData);
       setVisits(visitsData);
     } catch (err) {
-      console.error('Dashboard fetch error:', err);
+      console.warn('Dashboard fetch error:', err);
     } finally {
       setLoading(false);
       setRefreshing(false);

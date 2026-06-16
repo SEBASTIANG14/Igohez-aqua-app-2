@@ -17,16 +17,16 @@ export interface Pool {
 
 export interface CreatePoolData {
   name: string;
-  locationAddress?: string;
-  imageUrl?: string;
-  notes?: string;
+  locationAddress?: string | null;
+  imageUrl?: string | null;
+  notes?: string | null;
   poolType?: string;
-  paymentType?: string;
-  costPerWeek?: number;
-  costPerVisit?: number;
-  hasChemicalsCost?: boolean;
-  maintenanceDay?: string;
-  maintenanceTime?: string;
+  paymentType?: string | null;
+  costPerWeek?: number | null;
+  costPerVisit?: number | null;
+  hasChemicalsCost?: boolean | null;
+  maintenanceDay?: string | null;
+  maintenanceTime?: string | null;
 }
 
 export function getPools(): Promise<Pool[]> {

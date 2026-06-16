@@ -1,4 +1,4 @@
-import { apiGet, apiPost, apiDelete } from './api';
+import { apiGet, apiPost, apiDelete, apiPatch } from './api';
 
 export interface Visit {
   id: number;
@@ -12,6 +12,7 @@ export interface Visit {
   chemicalsSubtotal: number;
   totalAmount: number;
   notes: string | null;
+  status: 'ACTIVE' | 'COMPLETED';
   createdAt: string;
   pool?: {
     id: number;
@@ -27,6 +28,7 @@ export interface CreateVisitData {
   pricePerVisit?: number;
   items?: Array<{ product: string; quantity: number; unit: string }>;
   notes?: string;
+  status?: 'ACTIVE' | 'COMPLETED';
 }
 
 export function getAllVisits(): Promise<Visit[]> {
@@ -47,4 +49,8 @@ export function createVisit(poolId: number, data: CreateVisitData): Promise<Visi
 
 export function deleteVisit(poolId: number, visitId: number): Promise<{ message: string }> {
   return apiDelete<{ message: string }>(`/pools/${poolId}/visits/${visitId}`);
+}
+
+export function updateVisitStatus(poolId: number, visitId: number, status: 'ACTIVE' | 'COMPLETED'): Promise<Visit> {
+  return apiPatch<Visit>(`/pools/${poolId}/visits/${visitId}/status`, { status });
 }

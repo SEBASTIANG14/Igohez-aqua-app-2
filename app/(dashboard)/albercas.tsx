@@ -142,7 +142,11 @@ export default function AlbercasScreen() {
                 </Text>
                 <View className="flex-col gap-4">
                   {cardData.map((pool) => (
-                    <PoolCard key={pool.id} pool={pool} />
+                    <PoolCard
+                      key={pool.id}
+                      pool={pool}
+                      onPress={() => router.push(`/(dashboard)/alberca/${pool.id}` as any)}
+                    />
                   ))}
                 </View>
               </View>

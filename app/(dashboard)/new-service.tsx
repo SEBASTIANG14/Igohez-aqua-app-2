@@ -42,7 +42,7 @@ export default function NuevaVisitaScreen() {
           }
         }
       } catch (err) {
-        console.error('Error loading pools:', err);
+        console.warn('Error loading pools:', err);
       } finally {
         setLoadingPools(false);
       }

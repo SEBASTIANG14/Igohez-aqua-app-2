@@ -3,6 +3,7 @@ import { View, Text, Pressable, Image } from 'react-native';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
+import { useAuth } from '@/context/AuthContext';
 
 interface TopAppBarProps {
   showBack?: boolean;
@@ -13,6 +14,7 @@ interface TopAppBarProps {
 
 export default function TopAppBar({ showBack = false, showAvatar = true, avatarUri, title }: TopAppBarProps) {
   const insets = useSafeAreaInsets();
+  const { logout } = useAuth();
 
   return (
     <View
@@ -41,15 +43,31 @@ export default function TopAppBar({ showBack = false, showAvatar = true, avatarU
         )}
       </View>
 
-      {showAvatar && !showBack ? (
-        <Pressable className="w-10 h-10 items-center justify-center rounded-full active:bg-surface-container-low">
-          <MaterialIcons name="notifications" size={24} color="#404850" />
-        </Pressable>
-      ) : (
-        <View className="w-10 h-10 rounded-full bg-primary-fixed items-center justify-center overflow-hidden">
-          <MaterialIcons name="person" size={20} color="#005d90" />
-        </View>
-      )}
+      <View className="flex-row items-center gap-2">
+        {showAvatar && !showBack ? (
+          <>
+            <Pressable className="w-10 h-10 items-center justify-center rounded-full active:bg-surface-container-low">
+              <MaterialIcons name="notifications" size={24} color="#404850" />
+            </Pressable>
+            <Pressable
+              onPress={async () => {
+                try {
+                  await logout();
+                } catch (err) {
+                  console.error('Logout error:', err);
+                }
+              }}
+              className="w-10 h-10 items-center justify-center rounded-full active:bg-surface-container-low"
+            >
+              <MaterialIcons name="logout" size={22} color="#ba1a1a" />
+            </Pressable>
+          </>
+        ) : (
+          <View className="w-10 h-10 rounded-full bg-primary-fixed items-center justify-center overflow-hidden">
+            <MaterialIcons name="person" size={20} color="#005d90" />
+          </View>
+        )}
+      </View>
     </View>
   );
 }

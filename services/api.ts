@@ -1,8 +1,15 @@
 import * as SecureStore from 'expo-secure-store';
 import { Platform } from 'react-native';
 
-export const BASE_URL = 'http://192.168.1.198:3000/api';
+export const BASE_URL = 'http://172.29.32.1:3000/api';
 const TOKEN_KEY = 'poolflow_token';
+const USER_KEY = 'poolflow_user';
+
+let onUnauthorizedCallback: (() => void) | null = null;
+
+export function setUnauthorizedCallback(callback: () => void) {
+  onUnauthorizedCallback = callback;
+}
 
 // Token helpers — SecureStore on device, localStorage on web
 export async function getToken(): Promise<string | null> {
@@ -28,6 +35,39 @@ export async function removeToken(): Promise<void> {
   await SecureStore.deleteItemAsync(TOKEN_KEY);
 }
 
+// User details helpers — SecureStore on device, localStorage on web
+export async function saveUser(user: any): Promise<void> {
+  const userStr = JSON.stringify(user);
+  if (Platform.OS === 'web') {
+    localStorage.setItem(USER_KEY, userStr);
+    return;
+  }
+  await SecureStore.setItemAsync(USER_KEY, userStr);
+}
+
+export async function getUser(): Promise<any | null> {
+  let userStr;
+  if (Platform.OS === 'web') {
+    userStr = localStorage.getItem(USER_KEY);
+  } else {
+    userStr = await SecureStore.getItemAsync(USER_KEY);
+  }
+  if (!userStr) return null;
+  try {
+    return JSON.parse(userStr);
+  } catch {
+    return null;
+  }
+}
+
+export async function removeUser(): Promise<void> {
+  if (Platform.OS === 'web') {
+    localStorage.removeItem(USER_KEY);
+    return;
+  }
+  await SecureStore.deleteItemAsync(USER_KEY);
+}
+
 // Generic fetch wrapper
 async function request<T>(
   endpoint: string,
@@ -51,6 +91,13 @@ async function request<T>(
 
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
+    if (res.status === 401 || res.status === 403) {
+      await removeToken();
+      await removeUser();
+      if (onUnauthorizedCallback) {
+        onUnauthorizedCallback();
+      }
+    }
     throw new Error(body.error || `HTTP ${res.status}`);
   }
 
@@ -71,6 +118,13 @@ export function apiPost<T>(endpoint: string, data: any) {
 export function apiPut<T>(endpoint: string, data: any) {
   return request<T>(endpoint, {
     method: 'PUT',
+    body: JSON.stringify(data),
+  });
+}
+
+export function apiPatch<T>(endpoint: string, data: any) {
+  return request<T>(endpoint, {
+    method: 'PATCH',
     body: JSON.stringify(data),
   });
 }

@@ -1,4 +1,4 @@
-import { apiPost, saveToken, removeToken, getToken } from './api';
+import { apiPost, saveToken, removeToken, getToken, saveUser, removeUser } from './api';
 
 interface LoginResponse {
   message: string;
@@ -13,11 +13,13 @@ interface LoginResponse {
 export async function login(email: string, password: string): Promise<LoginResponse> {
   const data = await apiPost<LoginResponse>('/auth/login', { email, password });
   await saveToken(data.token);
+  await saveUser(data.user);
   return data;
 }
 
 export async function logout(): Promise<void> {
   await removeToken();
+  await removeUser();
 }
 
 export async function isAuthenticated(): Promise<boolean> {

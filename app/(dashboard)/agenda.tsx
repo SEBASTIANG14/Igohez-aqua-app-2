@@ -71,7 +71,7 @@ export default function AgendaScreen() {
       const data = await getAllVisits();
       setVisits(data);
     } catch (err) {
-      console.error('Error fetching visits:', err);
+      console.warn('Error fetching visits:', err);
     } finally {
       setLoading(false);
       setRefreshing(false);

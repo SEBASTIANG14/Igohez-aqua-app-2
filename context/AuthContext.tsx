@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import * as authService from '@/services/auth';
-import { removeToken } from '@/services/api';
+import { removeToken, getUser, setUnauthorizedCallback } from '@/services/api';
 
 interface User {
   id: number;
@@ -32,16 +32,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Check for existing session on mount
+  // Check for existing session on mount and register unauthorized handler
   useEffect(() => {
+    setUnauthorizedCallback(() => {
+      setUser(null);
+    });
+
     (async () => {
       try {
         const hasToken = await authService.isAuthenticated();
         if (hasToken) {
-          // We have a token but no user info cached
-          // For now, mark as logged in; the token will be sent with API calls
-          // A better approach would be a /me endpoint, but the backend doesn't have one
-          setUser({ id: 0, email: '', role: '' });
+          const storedUser = await getUser();
+          setUser(storedUser || { id: 0, email: '', role: '' });
         }
       } catch {
         // Token invalid or missing
@@ -49,6 +51,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setIsLoading(false);
       }
     })();
+
+    return () => {
+      setUnauthorizedCallback(() => {});
+    };
   }, []);
 
   const login = useCallback(async (email: string, password: string) => {
