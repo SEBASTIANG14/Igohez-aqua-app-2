@@ -82,17 +82,21 @@ export default function PoolCard({ pool, onPress }: PoolCardProps) {
               </View>
             ) : (
               <>
-                <View className="flex-row items-center gap-1 px-3 py-1 rounded-full bg-surface-container">
-                  <MaterialIcons name="event" size={12} color="#404850" />
-                  <Text className="text-on-surface-variant text-[10px] font-bold font-label uppercase">
-                    {pool.diaVisita}
-                  </Text>
-                </View>
-                <View className="flex-row items-center gap-1 px-3 py-1 rounded-full bg-tertiary-fixed">
-                  <Text className="text-on-tertiary-fixed-variant text-[10px] font-bold font-label uppercase">
-                    {pool.costoPeriodo}
-                  </Text>
-                </View>
+                {pool.diaVisita && pool.diaVisita !== '—' && (
+                  <View className="flex-row items-center gap-1 px-3 py-1 rounded-full bg-surface-container">
+                    <MaterialIcons name="event" size={12} color="#404850" />
+                    <Text className="text-on-surface-variant text-[10px] font-bold font-label uppercase">
+                      {pool.diaVisita}
+                    </Text>
+                  </View>
+                )}
+                {pool.costoPeriodo && pool.costoPeriodo !== '' && (
+                  <View className="flex-row items-center gap-1 px-3 py-1 rounded-full bg-tertiary-fixed">
+                    <Text className="text-on-tertiary-fixed-variant text-[10px] font-bold font-label uppercase">
+                      {pool.costoPeriodo}
+                    </Text>
+                  </View>
+                )}
               </>
             )}
           </View>

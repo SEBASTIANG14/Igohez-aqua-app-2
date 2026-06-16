@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, ScrollView, Pressable, ActivityIndicator, Alert, TextInput, Platform, KeyboardAvoidingView } from 'react-native';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { StatusBar } from 'expo-status-bar';
@@ -10,8 +10,11 @@ import { apiPut } from '@/services/api';
 
 // Shared Product Catalog
 const PRODUCT_CATALOG: Record<string, { label: string; baseUnit: string; pricePerBase: number }> = {
-  cloro_polvo: { label: 'Cloro (Polvo/Gran/pH)', baseUnit: 'kg', pricePerBase: 120 },
+  cloro_polvo: { label: 'Cloro Polvo', baseUnit: 'kg', pricePerBase: 120 },
+  cloro_granulado: { label: 'Cloro Granulado', baseUnit: 'kg', pricePerBase: 120 },
   cloro_pastilla: { label: 'Cloro Pastilla', baseUnit: 'kg', pricePerBase: 140 },
+  ph_mas: { label: 'pH +', baseUnit: 'kg', pricePerBase: 120 },
+  ph_menos: { label: 'pH -', baseUnit: 'kg', pricePerBase: 120 },
   alguicida: { label: 'Alguicida', baseUnit: 'l', pricePerBase: 130 },
   floculante: { label: 'Floculante', baseUnit: 'l', pricePerBase: 120 },
 };
@@ -45,10 +48,12 @@ export default function VisitDetailScreen() {
   useEffect(() => {
     // Determine default unit based on product
     const prod = PRODUCT_CATALOG[selectedProduct];
-    if (prod.baseUnit === 'kg') {
-      setSelectedUnit('kg'); // Or user can toggle to 'g'
-    } else {
-      setSelectedUnit('l'); // Or user can toggle to 'ml'
+    if (prod) {
+      if (prod.baseUnit === 'kg') {
+        setSelectedUnit('kg'); // Or user can toggle to 'g'
+      } else {
+        setSelectedUnit('l'); // Or user can toggle to 'ml'
+      }
     }
   }, [selectedProduct]);
 
@@ -123,6 +128,7 @@ export default function VisitDetailScreen() {
 
   // Optimistic calculation for display
   const itemsSubtotal = items.reduce((sum, item) => {
+    if (!item) return sum;
     const prod = PRODUCT_CATALOG[item.product];
     if (!prod) return sum;
     let baseQty = item.quantity;
@@ -132,7 +138,7 @@ export default function VisitDetailScreen() {
 
   const totalAmount = basePrice + itemsSubtotal;
 
-  const currentProd = PRODUCT_CATALOG[selectedProduct];
+  const currentProd = PRODUCT_CATALOG[selectedProduct] || { label: '', baseUnit: 'kg', pricePerBase: 0 };
   const isWeight = currentProd.baseUnit === 'kg';
 
   return (
@@ -268,6 +274,7 @@ export default function VisitDetailScreen() {
               </View>
             ) : (
               items.map((item, idx) => {
+                if (!item) return null;
                 const p = PRODUCT_CATALOG[item.product];
                 let baseQty = item.quantity;
                 if (item.unit === 'g' || item.unit === 'ml') baseQty = item.quantity / 1000;

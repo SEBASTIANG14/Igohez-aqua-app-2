@@ -9,8 +9,11 @@ import PageHeader from '@/components/ui/PageHeader';
 
 // Product catalog matching the backend
 const PRODUCT_CATALOG: Record<string, { label: string; baseUnit: string; pricePerBase: number }> = {
-  cloro_polvo: { label: 'Cloro (Polvo/Gran/pH)', baseUnit: 'kg', pricePerBase: 120 },
+  cloro_polvo: { label: 'Cloro Polvo', baseUnit: 'kg', pricePerBase: 120 },
+  cloro_granulado: { label: 'Cloro Granulado', baseUnit: 'kg', pricePerBase: 120 },
   cloro_pastilla: { label: 'Cloro Pastilla', baseUnit: 'kg', pricePerBase: 140 },
+  ph_mas: { label: 'pH +', baseUnit: 'kg', pricePerBase: 120 },
+  ph_menos: { label: 'pH -', baseUnit: 'kg', pricePerBase: 120 },
   alguicida: { label: 'Alguicida', baseUnit: 'l', pricePerBase: 130 },
   floculante: { label: 'Floculante', baseUnit: 'l', pricePerBase: 120 },
 };
@@ -31,7 +34,7 @@ export default function CalculatorScreen() {
   const [productDropdownOpen, setProductDropdownOpen] = useState(false);
   const [reportItems, setReportItems] = useState<ReportItem[]>([]);
 
-  const product = PRODUCT_CATALOG[selectedProduct];
+  const product = PRODUCT_CATALOG[selectedProduct] || { label: '', baseUnit: 'kg', pricePerBase: 0 };
 
   const totalEstimado = useMemo(() => {
     return reportItems.reduce((sum, item) => sum + item.lineTotal, 0);

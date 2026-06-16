@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { View, Text, ScrollView, TextInput, Pressable, KeyboardAvoidingView, Platform, Switch, Alert, ActivityIndicator } from 'react-native';
-import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { StatusBar } from 'expo-status-bar';
 import { router } from 'expo-router';
 
@@ -37,8 +36,10 @@ export default function NuevaAlbercaScreen() {
   const [direccion, setDireccion] = useState('');
   const [tipoAlberca, setTipoAlberca] = useState('Particular');
   const [notasAdicionales, setNotasAdicionales] = useState('');
+  const [programarMantenimiento, setProgramarMantenimiento] = useState(false);
   const [diaVisita, setDiaVisita] = useState('Lunes');
   const [horaEstimada, setHoraEstimada] = useState('');
+  const [definirCostos, setDefinirCostos] = useState(false);
   const [tipoPago, setTipoPago] = useState('POR SEMANA');
   const [costoPeriodo, setCostoPeriodo] = useState('');
   const [costoVisita, setCostoVisita] = useState('');
@@ -62,12 +63,12 @@ export default function NuevaAlbercaScreen() {
         locationAddress: direccion.trim(),
         poolType: POOL_TYPE_MAP[tipoAlberca] || 'PARTICULAR',
         notes: notasAdicionales.trim() || undefined,
-        paymentType: PAYMENT_TYPE_MAP[tipoPago] || undefined,
-        costPerWeek: costoPeriodo ? Number(costoPeriodo) : undefined,
-        costPerVisit: costoVisita ? Number(costoVisita) : undefined,
+        paymentType: definirCostos ? (PAYMENT_TYPE_MAP[tipoPago] || undefined) : undefined,
+        costPerWeek: definirCostos && costoPeriodo ? Number(costoPeriodo) : undefined,
+        costPerVisit: definirCostos && costoVisita ? Number(costoVisita) : undefined,
         hasChemicalsCost: cobraQuimicos,
-        maintenanceDay: diaVisita,
-        maintenanceTime: horaEstimada.trim() || undefined,
+        maintenanceDay: programarMantenimiento ? diaVisita : undefined,
+        maintenanceTime: programarMantenimiento && horaEstimada.trim() ? horaEstimada.trim() : undefined,
       });
 
       Alert.alert(
@@ -117,40 +118,63 @@ export default function NuevaAlbercaScreen() {
           </SectionCard>
 
           <SectionCard icon="schedule" title="Programación de Mantenimiento">
-            <DropdownPicker label="DÍA DE VISITA" options={DIAS_SEMANA} value={diaVisita} onChange={setDiaVisita} />
-            <FormField label="HORA ESTIMADA" icon="access-time" placeholder="--:-- --" value={horaEstimada} onChangeText={setHoraEstimada} />
+            <View className="flex-row items-center justify-between mb-4">
+              <View className="flex-1 mr-4">
+                <Text className="font-headline font-bold text-sm text-on-surface">¿Programar visitas recurrentes?</Text>
+                <Text className="text-on-surface-variant text-xs mt-0.5">Asignar día y hora de visita fija</Text>
+              </View>
+              <Switch value={programarMantenimiento} onValueChange={setProgramarMantenimiento} trackColor={{ false: '#bfc7d1', true: '#005d90' }} thumbColor={programarMantenimiento ? '#ffffff' : '#f4f3f4'} />
+            </View>
+            {programarMantenimiento && (
+              <View className="mt-4 pt-4 border-t border-surface-variant/20">
+                <DropdownPicker label="DÍA DE VISITA" options={DIAS_SEMANA} value={diaVisita} onChange={setDiaVisita} />
+                <FormField label="HORA ESTIMADA" icon="access-time" placeholder="--:-- --" value={horaEstimada} onChangeText={setHoraEstimada} />
+              </View>
+            )}
           </SectionCard>
 
           <PhotoUpload label="Subir fotografía de la alberca" />
 
           <SectionCard icon="account-balance-wallet" title="Esquema de Pagos" variant="tinted">
-            <View className="mb-5">
-              <Text className="font-label uppercase tracking-widest text-[10px] text-on-surface-variant font-bold mb-2">TIPO DE PAGO</Text>
-              <View className="flex-row bg-surface-container-high rounded-xl overflow-hidden">
-                {TIPOS_PAGO.map((tipo) => (
-                  <Pressable key={tipo} onPress={() => setTipoPago(tipo)} className={`flex-1 py-3 items-center justify-center ${tipoPago === tipo ? 'bg-primary' : ''}`}>
-                    <Text className={`font-label font-bold text-[10px] uppercase tracking-wider ${tipoPago === tipo ? 'text-white' : 'text-on-surface-variant'}`}>{tipo}</Text>
-                  </Pressable>
-                ))}
+            <View className="flex-row items-center justify-between mb-5">
+              <View className="flex-1 mr-4">
+                <Text className="font-headline font-bold text-sm text-on-surface">¿Definir costos fijos?</Text>
+                <Text className="text-on-surface-variant text-xs mt-0.5">Desactivar si el costo varía por consumo de químicos</Text>
               </View>
+              <Switch value={definirCostos} onValueChange={setDefinirCostos} trackColor={{ false: '#bfc7d1', true: '#005d90' }} thumbColor={definirCostos ? '#ffffff' : '#f4f3f4'} />
             </View>
 
-            <View className="flex-row gap-4 mb-5">
-              <View className="flex-1">
-                <Text className="font-label uppercase tracking-widest text-[10px] text-on-surface-variant font-bold mb-2">{getCostoPeriodoLabel()}</Text>
-                <View className="flex-row items-center bg-surface-container-lowest rounded-xl px-4 py-3.5">
-                  <Text className="text-primary font-headline font-bold text-lg mr-2">$</Text>
-                  <TextInput className="flex-1 text-on-surface font-body text-sm" placeholder="450" placeholderTextColor="#707881" value={costoPeriodo} onChangeText={setCostoPeriodo} keyboardType="numeric" />
+            {definirCostos && (
+              <View className="mt-4 pt-4 border-t border-[#c6ece0] mb-5">
+                <View className="mb-5">
+                  <Text className="font-label uppercase tracking-widest text-[10px] text-on-surface-variant font-bold mb-2">TIPO DE PAGO</Text>
+                  <View className="flex-row bg-surface-container-high rounded-xl overflow-hidden">
+                    {TIPOS_PAGO.map((tipo) => (
+                      <Pressable key={tipo} onPress={() => setTipoPago(tipo)} className={`flex-1 py-3 items-center justify-center ${tipoPago === tipo ? 'bg-primary' : ''}`}>
+                        <Text className={`font-label font-bold text-[10px] uppercase tracking-wider ${tipoPago === tipo ? 'text-white' : 'text-on-surface-variant'}`}>{tipo}</Text>
+                      </Pressable>
+                    ))}
+                  </View>
+                </View>
+
+                <View className="flex-row gap-4">
+                  <View className="flex-1">
+                    <Text className="font-label uppercase tracking-widest text-[10px] text-on-surface-variant font-bold mb-2">{getCostoPeriodoLabel()}</Text>
+                    <View className="flex-row items-center bg-surface-container-lowest rounded-xl px-4 py-3.5">
+                      <Text className="text-primary font-headline font-bold text-lg mr-2">$</Text>
+                      <TextInput className="flex-1 text-on-surface font-body text-sm" placeholder="450" placeholderTextColor="#707881" value={costoPeriodo} onChangeText={setCostoPeriodo} keyboardType="numeric" />
+                    </View>
+                  </View>
+                  <View className="flex-1">
+                    <Text className="font-label uppercase tracking-widest text-[10px] text-on-surface-variant font-bold mb-2">COSTO VISITA</Text>
+                    <View className="flex-row items-center bg-surface-container-lowest rounded-xl px-4 py-3.5">
+                      <Text className="text-primary font-headline font-bold text-lg mr-2">$</Text>
+                      <TextInput className="flex-1 text-on-surface font-body text-sm" placeholder="150" placeholderTextColor="#707881" value={costoVisita} onChangeText={setCostoVisita} keyboardType="numeric" />
+                    </View>
+                  </View>
                 </View>
               </View>
-              <View className="flex-1">
-                <Text className="font-label uppercase tracking-widest text-[10px] text-on-surface-variant font-bold mb-2">COSTO VISITA</Text>
-                <View className="flex-row items-center bg-surface-container-lowest rounded-xl px-4 py-3.5">
-                  <Text className="text-primary font-headline font-bold text-lg mr-2">$</Text>
-                  <TextInput className="flex-1 text-on-surface font-body text-sm" placeholder="150" placeholderTextColor="#707881" value={costoVisita} onChangeText={setCostoVisita} keyboardType="numeric" />
-                </View>
-              </View>
-            </View>
+            )}
 
             <View className="flex-row items-center justify-between bg-surface-container-lowest rounded-xl px-4 py-3">
               <View className="flex-1 mr-4">
